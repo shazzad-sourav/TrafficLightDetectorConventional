@@ -27,7 +27,7 @@
 
   <h2>Installation</h2>
   <p>Ensure you have Python installed. Clone the repository and install the required dependencies.</p>
-  <pre><code>$ git clone https://github.com/yourusername/traffic-light-detection.git
+  <pre><code>$ git clone https://github.com/shazzad-sourav/traffic-light-detection.git
 $ cd traffic-light-detection
 $ pip install -r requirements.txt</code></pre>
 
