@@ -39,9 +39,9 @@ $ pip install -r requirements.txt</code></pre>
   <h3>Performance Evaluation</h3>
   <p>The traffic light detection algorithm demonstrates robust performance across various scenarios. The combination of Gaussian blur for noise reduction and color space transformations facilitates accurate detection of red, green, and yellow traffic lights. Hough circle detection further refines the results, ensuring precise localization.</p>
 
-  <h3>Sample Results</h3>
-  <img src="sample_results/result1.png" alt="Sample Result 1">
-  <img src="sample_results/result2.png" alt="Sample Result 2">
+  <h3>Sample Input and Output</h3>
+  <img src="Input/traffic_light_54.jpg" alt="Input Image">
+  <img src="Output/traffic_light_54.jpg" alt="Output Image">
 
   <h3>Comparative Analysis</h3>
   <p>The algorithm's performance was evaluated against a diverse dataset comprising images captured under different lighting conditions, viewpoints, and traffic scenarios. Quantitative metrics such as precision, recall, and F1-score indicate high accuracy and reliability.</p>
