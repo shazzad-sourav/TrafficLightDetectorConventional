@@ -54,7 +54,7 @@ $ pip install -r requirements.txt</code></pre>
 
 
   <h2>Acknowledgements</h2>
-  <p>This project makes use of OpenCV and Tkinter libraries. Special thanks to the contributors of these libraries.</p>
+  <p>This project makes use of OpenCV and Tkinter libraries. Fundamental ideas came from this work</em>. See the <a href="https://github.com/HevLfreis/TrafficLight-Detector">repository</a> for details.</p> Special thanks to the contributors of these libraries and     the repository.</p>
 </div>
 </body>
 </html>
