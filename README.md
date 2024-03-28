@@ -50,7 +50,8 @@ $ pip install -r requirements.txt</code></pre>
   <p>Contributions, bug reports, and feature requests are welcome. Please submit them through issues or pull requests.</p>
 
   <h2>License</h2>
-  <p>This project is licensed under <em>[License Name]</em>. See the LICENSE file for details.</p>
+  <p>This project is licensed under <em>GNU General Public License</em>. See the <a href="LICENSE">LICENSE</a> file for details.</p>
+
 
   <h2>Acknowledgements</h2>
   <p>This project makes use of OpenCV and Tkinter libraries. Special thanks to the contributors of these libraries.</p>
