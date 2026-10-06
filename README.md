@@ -81,7 +81,7 @@ Recall is 0.83 for circular lamps (53 of 64) and 0.25 for arrow lamps (2 of 8). 
 - Missed lamps (17): 6 arrow lamps (not circular), 6 small or weakly colored lamps, 4 red lamps washed out to white at night, and 1 rejected by the top-40% position rule.
 - False detections (24): about 9 yellow glows from street lamps, trees, and walls; 4 neon or LED signs; 4 lit building windows; 1 car light; 1 speed-limit sign; 1 countdown display; 4 other.
 
-Reproduce: `python evaluate_detector.py --images <folder> --gt ground_truth.csv --prefix input_` (you need your own copy of the images).
+Reproduce: `python evaluate_detector.py --images <folder> --gt ground_truth.csv --prefix input_` (you need your own copy of the test images; `ground_truth.csv` refers to that 45-image set, not to the `Input/` folder). Add `--blur` to score the blurred variant. The script writes per-detection results to `details.csv`. For the day/night split, add a `lighting` column (`day`/`night`) to the CSV or pass `--lighting <csv>`; otherwise images are classified automatically by mean brightness.
 
 ## Limitations
 

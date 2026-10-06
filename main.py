@@ -1,145 +1,193 @@
-import tkinter as tk
-from tkinter import filedialog, messagebox
-import numpy as np
-import cv2
+"""
+Traffic light detection with classical computer vision.
+
+HSV color masks + Hough circle detection for red, green and yellow lamps.
+
+Usage:
+    python main.py                                   # folder dialogs
+    python main.py --input Input --output Output     # no dialogs
+    python main.py --input Input --output Output --blur --no-display
+
+From code:
+    from main import detect
+    annotated, detections = detect(cv2.imread("Input/traffic_light_54.jpg"))
+"""
+
+import argparse
 import os
+import sys
 
-def select_input_directory():
-    input_directory = filedialog.askdirectory(title="Select Input Directory")
-    if input_directory:
-        select_output_directory(input_directory)
+import cv2
+import numpy as np
 
-def select_output_directory(input_directory):
-    output_directory = filedialog.askdirectory(title="Select Output Directory")
-    if output_directory:
-        read_images(input_directory, output_directory)
+IMAGE_EXTENSIONS = (".jpg", ".jpeg", ".png", ".bmp")
 
-def read_images(input_directory, output_directory):
-    image_files = [f for f in os.listdir(input_directory) if f.endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
-    for image_file in image_files:
-        image_path = os.path.join(input_directory, image_file)
-        image = cv2.imread(image_path)
-        if image is not None:
-            cv2.imshow("Input Image", image)
-            pimage = detect(image)
-            cv2.imshow("Output Image", pimage)
-            output_path = os.path.join(output_directory, image_file)
-            cv2.imwrite(output_path, pimage)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+# HSV thresholds (OpenCV hue range is 0-180)
+LOWER_RED1, UPPER_RED1 = np.array([0, 100, 100]), np.array([10, 255, 255])
+LOWER_RED2, UPPER_RED2 = np.array([160, 100, 100]), np.array([180, 255, 255])
+LOWER_GREEN, UPPER_GREEN = np.array([40, 50, 50]), np.array([90, 255, 255])
+LOWER_YELLOW, UPPER_YELLOW = np.array([15, 150, 150]), np.array([35, 255, 255])
 
-def prompt(img):
-    result = messagebox.askyesno("Gaussian Filter", "If the images are very sharp choose Yes. Othewise choose No")
-    cimg = img
-    if result:
-        bimg = cv2.GaussianBlur(img,(9,9),3)
-        hsv = cv2.cvtColor(bimg, cv2.COLOR_BGR2HSV)
-    else:
-        hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    return hsv
+TOP_FRACTION = 0.4   # only keep candidates in the top 40% of the image
+WINDOW = 5           # half-size of the mask check window around a center
 
-def detect(img):
-    
+# label: (Hough minDist, Hough param2, minimum mean mask value in the window)
+COLOR_SETTINGS = {
+    "RED": (80, 10, 50),
+    "GREEN": (60, 10, 100),
+    "YELLOW": (30, 5, 50),
+}
+
+
+def color_masks(hsv):
+    red = cv2.add(cv2.inRange(hsv, LOWER_RED1, UPPER_RED1),
+                  cv2.inRange(hsv, LOWER_RED2, UPPER_RED2))
+    green = cv2.inRange(hsv, LOWER_GREEN, UPPER_GREEN)
+    yellow = cv2.inRange(hsv, LOWER_YELLOW, UPPER_YELLOW)
+    return {"RED": red, "GREEN": green, "YELLOW": yellow}
+
+
+def _window_mean(mask, x, y):
+    """Mean mask value in a (2*WINDOW)x(2*WINDOW) window centered on (x, y)."""
+    height, width = mask.shape
+    total, count = 0.0, 0
+    for m in range(-WINDOW, WINDOW):
+        for n in range(-WINDOW, WINDOW):
+            yy, xx = y + m, x + n
+            if yy >= height or xx >= width:
+                continue
+            total += mask[yy, xx]
+            count += 1
+    return total / count if count else 0.0
+
+
+def detect(img, use_blur=False):
+    """
+    Detect lit traffic lamps in a BGR image.
+
+    Returns (annotated_copy, detections) where detections is a list of
+    {'label': 'RED'|'GREEN'|'YELLOW', 'x': int, 'y': int, 'radius': int}.
+    The input image is not modified.
+    """
+    source = cv2.GaussianBlur(img, (9, 9), 3) if use_blur else img
+    hsv = cv2.cvtColor(source, cv2.COLOR_BGR2HSV)
+    masks = color_masks(hsv)
+
+    annotated = img.copy()
+    height, width = img.shape[:2]
     font = cv2.FONT_HERSHEY_SIMPLEX
-    cimg = img
-    hsv = prompt(img)
+    detections = []
 
-    # color range
-    lower_red1 = np.array([0,100,100])
-    upper_red1 = np.array([10,255,255])
-    lower_red2 = np.array([160,100,100])
-    upper_red2 = np.array([180,255,255])
-    lower_green = np.array([40,50,50])
-    upper_green = np.array([90,255,255])
-    # lower_yellow = np.array([15,100,100])
-    # upper_yellow = np.array([35,255,255])
-    lower_yellow = np.array([15,150,150])
-    upper_yellow = np.array([35,255,255])
-    mask1 = cv2.inRange(hsv, lower_red1, upper_red1)
-    mask2 = cv2.inRange(hsv, lower_red2, upper_red2)
-    maskg = cv2.inRange(hsv, lower_green, upper_green)
-    masky = cv2.inRange(hsv, lower_yellow, upper_yellow)
-    maskr = cv2.add(mask1, mask2)
+    for label, (min_dist, param2, min_fill) in COLOR_SETTINGS.items():
+        mask = masks[label]
+        circles = cv2.HoughCircles(mask, cv2.HOUGH_GRADIENT, 1, min_dist,
+                                   param1=50, param2=param2,
+                                   minRadius=0, maxRadius=30)
+        if circles is None:
+            continue
 
-    size = img.shape
-    # print size
-
-    # hough circle detect
-    r_circles = cv2.HoughCircles(maskr, cv2.HOUGH_GRADIENT, 1, 80,
-                               param1=50, param2=10, minRadius=0, maxRadius=30)
-
-    g_circles = cv2.HoughCircles(maskg, cv2.HOUGH_GRADIENT, 1, 60,
-                                 param1=50, param2=10, minRadius=0, maxRadius=30)
-
-    y_circles = cv2.HoughCircles(masky, cv2.HOUGH_GRADIENT, 1, 30,
-                                 param1=50, param2=5, minRadius=0, maxRadius=30)
-
-    # traffic light detect
-    r = 5
-    bound = 4.0 / 10
-    if r_circles is not None:
-        r_circles = np.uint16(np.around(r_circles))
-
-        for i in r_circles[0, :]:
-            if i[0] > size[1] or i[1] > size[0]or i[1] > size[0]*bound:
+        for cx, cy, cr in np.uint16(np.around(circles))[0, :]:
+            # Plain Python ints: uint16 arithmetic with negative offsets
+            # raises OverflowError on NumPy 2.
+            x, y, radius = int(cx), int(cy), int(cr)
+            if x > width or y > height or y > height * TOP_FRACTION:
+                continue
+            if _window_mean(mask, x, y) <= min_fill:
                 continue
 
-            h, s = 0.0, 0.0
-            for m in range(-r, r):
-                for n in range(-r, r):
+            cv2.circle(annotated, (x, y), radius + 10, (0, 255, 0), 2)
+            cv2.putText(annotated, label, (x, y), font, 1, (255, 0, 0), 2, cv2.LINE_AA)
+            # Kept from the original algorithm: an accepted lamp is outlined on
+            # the mask, which can affect later candidates of the same color.
+            cv2.circle(mask, (x, y), radius + 30, (255, 255, 255), 2)
+            detections.append({"label": label, "x": x, "y": y, "radius": radius})
 
-                    if (i[1]+m) >= size[0] or (i[0]+n) >= size[1]:
-                        continue
-                    h += maskr[i[1]+m, i[0]+n]
-                    s += 1
-            if h / s > 50:
-                cv2.circle(cimg, (i[0], i[1]), i[2]+10, (0, 255, 0), 2)
-                cv2.circle(maskr, (i[0], i[1]), i[2]+30, (255, 255, 255), 2)
-                cv2.putText(cimg,'RED',(i[0], i[1]), font, 1,(255,0,0),2,cv2.LINE_AA)
+    return annotated, detections
 
-    if g_circles is not None:
-        g_circles = np.uint16(np.around(g_circles))
 
-        for i in g_circles[0, :]:
-            if i[0] > size[1] or i[1] > size[0] or i[1] > size[0]*bound:
+def list_images(folder):
+    return sorted(f for f in os.listdir(folder) if f.lower().endswith(IMAGE_EXTENSIONS))
+
+
+def process_folder(input_dir, output_dir, use_blur=False, display=True):
+    os.makedirs(output_dir, exist_ok=True)
+    files = list_images(input_dir)
+    if not files:
+        print(f"No images found in {input_dir}")
+        return
+
+    for name in files:
+        image = cv2.imread(os.path.join(input_dir, name))
+        if image is None:
+            print(f"Skipped (unreadable): {name}")
+            continue
+
+        annotated, detections = detect(image, use_blur=use_blur)
+        cv2.imwrite(os.path.join(output_dir, name), annotated)
+        found = ", ".join(d["label"] for d in detections) or "none"
+        print(f"{name}: {found}")
+
+        if display:
+            try:
+                cv2.imshow("Input Image", image)
+                cv2.imshow("Output Image", annotated)
+                key = cv2.waitKey(0) & 0xFF
+            except cv2.error:
+                print("No display available; continuing without preview.")
+                display = False
                 continue
+            if key == ord("q"):
+                display = False
+                cv2.destroyAllWindows()
 
-            h, s = 0.0, 0.0
-            for m in range(-r, r):
-                for n in range(-r, r):
-
-                    if (i[1]+m) >= size[0] or (i[0]+n) >= size[1]:
-                        continue
-                    h += maskg[i[1]+m, i[0]+n]
-                    s += 1
-            if h / s > 100:
-                cv2.circle(cimg, (i[0], i[1]), i[2]+10, (0, 255, 0), 2)
-                cv2.circle(maskg, (i[0], i[1]), i[2]+30, (255, 255, 255), 2)
-                cv2.putText(cimg,'GREEN',(i[0], i[1]), font, 1,(255,0,0),2,cv2.LINE_AA)
-
-    if y_circles is not None:
-        y_circles = np.uint16(np.around(y_circles))
-
-        for i in y_circles[0, :]:
-            if i[0] > size[1] or i[1] > size[0] or i[1] > size[0]*bound:
-                continue
-
-            h, s = 0.0, 0.0
-            for m in range(-r, r):
-                for n in range(-r, r):
-
-                    if (i[1]+m) >= size[0] or (i[0]+n) >= size[1]:
-                        continue
-                    h += masky[i[1]+m, i[0]+n]
-                    s += 1
-            if h / s > 50:
-                cv2.circle(cimg, (i[0], i[1]), i[2]+10, (0, 255, 0), 2)
-                cv2.circle(masky, (i[0], i[1]), i[2]+30, (255, 255, 255), 2)
-                cv2.putText(cimg,'YELLOW',(i[0], i[1]), font, 1,(255,0,0),2,cv2.LINE_AA)
-    return cimg
+    if display:
+        cv2.destroyAllWindows()
+    print(f"Done: {len(files)} image(s) written to {output_dir}")
 
 
-root = tk.Tk()
-root.withdraw()  # Hide the main window
+def ask_with_dialogs():
+    """Tkinter dialogs for input folder, output folder and the blur choice."""
+    import tkinter as tk
+    from tkinter import filedialog, messagebox
 
-select_input_directory()
+    root = tk.Tk()
+    root.withdraw()
+    input_dir = filedialog.askdirectory(title="Select Input Directory")
+    if not input_dir:
+        return None
+    output_dir = filedialog.askdirectory(title="Select Output Directory")
+    if not output_dir:
+        return None
+    use_blur = messagebox.askyesno(
+        "Gaussian Filter", "If the images are very sharp choose Yes. Otherwise choose No.")
+    root.destroy()
+    return input_dir, output_dir, use_blur
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Detect traffic lights in a folder of images.")
+    parser.add_argument("--input", help="Folder of input images (omit both folders to use dialogs)")
+    parser.add_argument("--output", help="Folder for annotated images")
+    parser.add_argument("--blur", action="store_true", help="Apply a 9x9 Gaussian blur before detection")
+    parser.add_argument("--no-display", action="store_true", help="Do not show preview windows")
+    args = parser.parse_args()
+
+    if args.input or args.output:
+        if not (args.input and args.output):
+            parser.error("--input and --output must be given together")
+        if not os.path.isdir(args.input):
+            sys.exit(f"Input folder not found: {args.input}")
+        input_dir, output_dir, use_blur = args.input, args.output, args.blur
+    else:
+        choice = ask_with_dialogs()
+        if choice is None:
+            print("Cancelled.")
+            return
+        input_dir, output_dir, use_blur = choice
+        use_blur = use_blur or args.blur
+
+    process_folder(input_dir, output_dir, use_blur=use_blur, display=not args.no_display)
+
+
+if __name__ == "__main__":
+    main()
