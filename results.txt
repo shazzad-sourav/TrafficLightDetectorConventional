@@ -1,0 +1,19 @@
+Images: 45   ground-truth lamps: 72   detections: 97
+TP=55  FP=24  FN=17   ambiguous detections=18  ambiguous lamps not found=17
+
+Main (ambiguous excluded)  precision=0.696  recall=0.764  F1=0.728
+Worst case                 precision=0.567  recall=0.618  F1=0.591
+Best case                  precision=0.753  recall=0.811  F1=0.781
+
+By color:
+  RED     TP= 23 FP=  9 FN= 10  precision=0.719  recall=0.697
+  GREEN   TP= 15 FP=  6 FN=  6  precision=0.714  recall=0.714
+  YELLOW  TP= 17 FP=  9 FN=  1  precision=0.654  recall=0.944
+By lamp shape (recall):
+  arrow   2/8 = 0.250
+  circle  53/64 = 0.828
+By lighting:
+  day   TP= 34 FP= 10 FN=  9  precision=0.773  recall=0.791
+  night TP= 21 FP= 14 FN=  8  precision=0.600  recall=0.724
+
+Per-detection details saved to details.csv
