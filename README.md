@@ -96,7 +96,13 @@ A deep-learning detector would likely handle these better. This project is inten
 
 ## License
 
-AGPL-3.0. See [LICENSE](LICENSE).
+My code (command-line interface, refactoring, evaluation script) and the
+ground-truth labels are released under the MIT License; see [LICENSE](LICENSE).
+
+The original detection code and the sample images in `Input/` come from
+[HevLfreis/TrafficLight-Detector](https://github.com/HevLfreis/TrafficLight-Detector),
+which does not specify a license; rights to that material remain with its author.
+Some of those images are stock photos and carry their sites' watermarks.
 
 ## Acknowledgements
 
